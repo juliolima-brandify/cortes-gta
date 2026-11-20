@@ -1,0 +1,8 @@
+[Unit]
+Description=Entrada privada do Cockpit Cortes GTA
+
+[Socket]
+ListenStream=127.0.0.1:18767
+
+[Install]
+WantedBy=sockets.target

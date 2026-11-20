@@ -1,0 +1,14 @@
+{
+  "name": "cortes-gta-escritorio-3d",
+  "private": true,
+  "scripts": {
+    "bundle": "node bundle.cjs"
+  },
+  "dependencies": {
+    "lucide": "1.77.0",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

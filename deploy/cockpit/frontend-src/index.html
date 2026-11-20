@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d0c12">
+  <title>Torre de controle · GTA 6 Cortes</title>
+  <link rel="icon" href="/marca.png">
+  <link rel="stylesheet" href="/estilo.css?v=monitor-das-mesas">
+  <script src="/app.js?v=monitor-das-mesas" defer></script>
+  <script src="/editor.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="menu" aria-label="Navegação principal">
+      <a class="dock-item vidro" href="#escritorio" data-view="escritorio"><span class="dock-icone" data-cockpit-icon="building-2" aria-hidden="true"></span><span class="dock-rotulo">Escritório</span></a>
+      <a class="dock-item vidro" href="#torre" data-view="torre" aria-label="Torre ao vivo"><span class="dock-icone" data-cockpit-icon="radio-tower" aria-hidden="true"></span><span class="dock-rotulo">Torre</span></a>
+      <a class="dock-item vidro" href="#cortes" data-view="cortes" aria-label="Garimpo, feed de cortes"><span class="dock-icone" data-cockpit-icon="list-video" aria-hidden="true"></span><span class="dock-rotulo">Cortes</span></a>
+      <a class="dock-item vidro" href="#edicao" data-view="edicao" aria-label="Em edição"><span class="dock-icone" data-cockpit-icon="scissors" aria-hidden="true"></span><span class="dock-rotulo">Edição</span></a>
+      <a class="dock-item vidro" href="#agenda" data-view="agenda"><span class="dock-icone" data-cockpit-icon="calendar-days" aria-hidden="true"></span><span class="dock-rotulo">Agenda</span></a>
+    </nav>
+    <header class="topo vidro" aria-label="Indicadores do Cockpit">
+      <a class="marca" href="#escritorio" aria-label="GTA Cortes, voltar ao Escritório"><img src="/marca.png" alt="" width="34" height="34"></a>
+      <div class="hud-metricas" id="hud-metricas">
+        <a class="hud-item" href="#torre" title="Lives em gravação"><span class="hud-sinal" aria-hidden="true"></span><span>Capturando</span><strong id="hud-captura">—</strong></a>
+        <a class="hud-item" href="#cortes" title="Cortes esperando revisão no Garimpo"><span class="hud-sinal" aria-hidden="true"></span><span>Garimpo</span><strong id="hud-garimpo">—</strong></a>
+        <a class="hud-item" href="#edicao" title="Cortes aprovados na etapa de edição"><span class="hud-sinal" aria-hidden="true"></span><span>Em edição</span><strong id="hud-edicao">—</strong></a>
+        <a class="hud-item" href="#agenda" title="Vídeos com agendamento registrado"><span class="hud-sinal" aria-hidden="true"></span><span>Agendados</span><strong id="hud-agenda">—</strong></a>
+      </div>
+      <div class="conexao">
+        <span class="sync" id="hud-conexao"><i id="status-topo" class="mini-dot" aria-hidden="true"></i><span id="monitor-hora">Carregando</span><span id="estado-rail" class="somente-leitor" role="status">Conectando</span></span>
+        <button id="girar-escritorio" class="botao hud-atualizar hud-girar" type="button" title="Girar vista do Escritório" aria-label="Girar vista do Escritório" disabled><span data-cockpit-icon="rotate-ccw" aria-hidden="true"></span></button>
+        <button id="atualizar" class="botao hud-atualizar" type="button" title="Atualizar" aria-label="Atualizar dados"><span data-cockpit-icon="refresh-cw" aria-hidden="true"></span></button>
+      </div>
+    </header>
+      <main id="principal" tabindex="-1">
+        <section id="escritorio" aria-labelledby="titulo-escritorio">
+          <h1 id="titulo-escritorio" class="somente-leitor">Escritório</h1>
+          <div class="escritorio-cena" role="group" aria-label="Estações de trabalho">
+            <canvas id="escritorio-3d" aria-label="Escritório isométrico 3D na orla, com quatro estações de trabalho" role="img"></canvas>
+            <p id="escritorio-3d-aviso" class="escritorio-3d-aviso" role="status" hidden>Vista 3D indisponível neste navegador.</p>
+            <button type="button" class="escritorio-mesa" data-mesa="captura"><strong>Captura</strong><small>Conectando</small></button>
+            <button type="button" class="escritorio-mesa" data-mesa="garimpo"><strong>Garimpo</strong><small>Conectando</small></button>
+            <button type="button" class="escritorio-mesa" data-mesa="edicao"><strong>Edição</strong><small>Conectando</small></button>
+            <button type="button" class="escritorio-mesa" data-mesa="agenda"><strong>Agenda</strong><small>Conectando</small></button>
+          </div>
+        </section>
+        <div id="painel-flutuante" class="monitor-mesa" role="region" hidden>
+          <div class="monitor-cabecalho">
+            <a href="#escritorio" class="monitor-voltar" aria-label="Voltar ao Escritório"><span data-cockpit-icon="arrow-left" aria-hidden="true"></span>Escritório</a>
+            <span id="monitor-setor"></span>
+          </div>
+        <section id="torre" class="tela" hidden>
+          <div class="titulo da-torre"><div><h1>Torre de controle</h1><p>Lives de GTA e cortes em produção.</p></div><a class="botao acao" href="#cortes">Abrir fila de revisão</a></div>
+          <div class="resumo" id="contadores" aria-label="Resumo da operação"></div>
+          <section class="secao" aria-labelledby="lives-titulo">
+            <div class="cabecalho"><div><h2 id="lives-titulo">Canais monitorados</h2></div><span class="filtro-fixo">GTA VI <b>·</b> GTA V / RP</span></div>
+            <div id="canais" class="canais"></div>
+          </section>
+          <div class="base">
+            <section class="secao caixa" aria-labelledby="revisao-titulo">
+              <div class="cabecalho"><div><h2 id="revisao-titulo">Prioridade de revisão</h2><p>Os trechos com maior nota de triagem aparecem primeiro.</p></div><a class="botao discreto" href="#cortes">Ver feed</a></div>
+              <div id="prioridades" class="prioridades"></div>
+            </section>
+            <section class="secao caixa esteira" aria-labelledby="esteira-titulo">
+              <div class="cabecalho"><h2 id="esteira-titulo">Esteira agora</h2><span class="reflexo" aria-hidden="true"></span></div>
+              <div id="esteira"></div>
+              <div id="aviso-esteira" class="aviso" hidden></div>
+            </section>
+          </div>
+        </section>
+        <section id="cortes" class="tela" hidden>
+          <div class="titulo"><div><h1 id="titulo-feed">Feed de cortes</h1><p id="calibracao"></p></div></div>
+          <div class="filtros">
+            <label id="campo-estado">Estado<select id="filtro-estado"><option value="pendente">Para revisar</option><option value="aprovado">Aprovados pra editar</option><option value="pronto">Prontos pra agendar</option><option value="finalizado">Já publicados ou agendados</option><option value="recusado">Recusados</option><option value="todos">Todos</option></select></label>
+            <label>Criador<select id="filtro-criador"><option value="todos">Todos</option><option>Alanzoka</option><option>Paulinho o Loko</option><option>Láctea</option><option>Renato Money Moicano</option></select></label>
+            <label>Ordem<select id="ordem"><option value="nota">Maior nota</option><option value="data">Mais recentes</option></select></label>
+            <span id="resultado"></span>
+          </div>
+          <div id="grade-clipes" class="grade-clipes"></div>
+          <div class="paginacao"><button id="mais" class="botao discreto" hidden>Mostrar mais</button></div>
+        </section>
+        <section id="agenda" class="tela" hidden>
+          <div class="titulo"><div><h1>Agenda</h1><p>Verticais e horários registrados para as três redes.</p></div></div>
+          <section id="prontos-secao" class="secao" hidden><div class="cabecalho"><h2>Prontos pra agendar</h2></div><div id="prontos-itens" class="agenda-itens"></div></section>
+          <div class="cabecalho agenda-head"><h2 id="data-agenda">Publicações</h2><span class="filtro-fixo">Horário de São Paulo</span></div>
+          <div id="agenda-itens" class="agenda-itens"></div>
+        </section>
+        </div>
+        <p id="erro-geral" role="status" class="aviso aviso-hud vidro" hidden></p>
+      </main>
+    <details id="revisao-lateral" class="trilho revisao-lateral" open>
+      <summary class="trilho-topo vidro"><span data-cockpit-icon="list-filter" class="trilho-icone" aria-hidden="true"></span><strong>Revisão por nota</strong><span id="revisao-total">—</span></summary>
+      <div class="trilho-corpo revisao-corpo vidro"><ol id="revisao-itens" aria-label="Cortes para revisão por nota"></ol><p id="revisao-sem-itens" hidden></p></div>
+    </details>
+    <details id="atividade-lateral" class="trilho atividade-lateral" open>
+      <summary class="trilho-topo vidro"><span data-cockpit-icon="bell" class="trilho-icone" aria-hidden="true"></span><strong>Atividade</strong><span id="atividade-total">0</span></summary>
+      <div class="trilho-corpo atividade-corpo vidro">
+        <div class="atividade-acoes"><button id="atividade-marcar-todas" type="button">Marcar todas como lidas</button></div>
+        <ol id="atividade-lista" aria-label="Histórico de notificações e eventos" role="log" aria-live="polite" aria-relevant="additions"></ol>
+      </div>
+    </details>
+  </div>
+  <dialog id="detalhe" aria-labelledby="dialog-titulo"><article id="dialog-conteudo"></article></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

@@ -1,0 +1,15 @@
+[Unit]
+Description=Proxy local para o Cockpit Cortes GTA
+Requires=cortes-gta-cockpit.socket
+After=cortes-gta-cockpit.socket
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --connections-max=64 /opt/cortes-gta/cockpit/run/http.sock
+User=cortes-gta
+Group=cortes-gta
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
