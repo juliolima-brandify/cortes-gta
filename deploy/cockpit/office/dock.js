@@ -42,6 +42,7 @@ import {
   CalendarDays,
   ListFilter,
   ListVideo,
+  Maximize2,
   RadioTower,
   RefreshCw,
   RotateCcw,
@@ -57,6 +58,7 @@ const glyphs = new Map([
   ["calendar-days", CalendarDays],
   ["list-filter", ListFilter],
   ["list-video", ListVideo],
+  ["maximize-2", Maximize2],
   ["radio-tower", RadioTower],
   ["refresh-cw", RefreshCw],
   ["rotate-ccw", RotateCcw],
@@ -64,7 +66,7 @@ const glyphs = new Map([
   ["x", X],
 ]);
 
-export function startDock() {
+export function startDock(office = document.getElementById("escritorio")) {
   for (const marker of document.querySelectorAll("[data-cockpit-icon]")) {
     const name = marker.dataset.cockpitIcon;
     const glyph = glyphs.get(name);
@@ -74,5 +76,23 @@ export function startDock() {
       "data-cockpit-glyph": name,
       focusable: "false",
     }));
+  }
+  const stations = {torre: "captura", cortes: "garimpo", edicao: "edicao", agenda: "agenda"};
+  for (const link of document.querySelectorAll(".menu .dock-item")) {
+    const label = link.querySelector(".dock-rotulo");
+    if (label) {
+      label.id = `dock-tip-${link.dataset.view}`;
+      label.setAttribute("role", "tooltip");
+      link.setAttribute("aria-describedby", label.id);
+      if (!link.hasAttribute("aria-label")) link.setAttribute("aria-label", label.textContent);
+    }
+    const highlight = active => office?.dispatchEvent(new CustomEvent("cockpit:destaque", {
+      detail: {station: active ? stations[link.dataset.view] || null : null},
+    }));
+    link.addEventListener("pointerenter", () => highlight(true));
+    link.addEventListener("pointerleave", () => highlight(link.matches(":focus-visible")));
+    link.addEventListener("focus", () => highlight(true));
+    link.addEventListener("blur", () => highlight(false));
+    link.addEventListener("click", () => highlight(false));
   }
 }

@@ -1,0 +1,206 @@
+{
+  "provider": "Poly Haven",
+  "license": "CC0-1.0",
+  "license_url": "https://polyhaven.com/license",
+  "assets": [
+    {
+      "id": "wood_table_001",
+      "page": "https://polyhaven.com/a/wood_table_001",
+      "authors": {
+        "Dimitrios Savva": "Photography",
+        "Rico Cilliers": "Processing"
+      },
+      "files": [
+        {
+          "path": "wood-color.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_table_001/wood_table_001_diff_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 70065,
+          "color_gamma": 0.55,
+          "sha256": "fa6aaf808b2e6c915a12a620474561cb771a9489140e351fb2c48b2ab2acdee8"
+        },
+        {
+          "path": "wood-normal.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_table_001/wood_table_001_nor_gl_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 10110,
+          "color_gamma": 1,
+          "sha256": "806f99b3baa6889cd267080ef25cb0e86986eb8011d0215e88b766f1ddd4e223"
+        }
+      ]
+    },
+    {
+      "id": "patterned_terracotta_tiling",
+      "page": "https://polyhaven.com/a/patterned_terracotta_tiling",
+      "authors": {
+        "Amal Kumar": "All"
+      },
+      "files": [
+        {
+          "path": "floor-color.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/patterned_terracotta_tiling/patterned_terracotta_tiling_diff_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 37495,
+          "color_gamma": 1,
+          "sha256": "429dced218ab4ce86253f219480746a312e1c5b8d3e08fa45ab0969e7487f7e3"
+        },
+        {
+          "path": "floor-normal.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/patterned_terracotta_tiling/patterned_terracotta_tiling_nor_gl_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 38965,
+          "color_gamma": 1,
+          "sha256": "5044bc0fb3d141d122cc1bb9c8dd6d60e890aad6077dbbf1a4e1bc4ca799028a"
+        }
+      ]
+    },
+    {
+      "id": "denim_fabric",
+      "page": "https://polyhaven.com/a/denim_fabric",
+      "authors": {
+        "Rob Tuytel": "All"
+      },
+      "files": [
+        {
+          "path": "fabric-color.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/denim_fabric/denim_fabric_diff_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 77403,
+          "color_gamma": 0.75,
+          "sha256": "8ebf3bda663b0ed07f9a61d6c16dfe9d4b2acfbb04f2697e6b8dd6c633ccd6b3"
+        },
+        {
+          "path": "fabric-normal.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/denim_fabric/denim_fabric_nor_gl_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 62082,
+          "color_gamma": 1,
+          "sha256": "970558486e910d301ace9cc934e7f113d93c56d6a122718b8a82b7988b6a8d3c"
+        }
+      ]
+    },
+    {
+      "id": "clay_plaster",
+      "page": "https://polyhaven.com/a/clay_plaster",
+      "authors": {
+        "Amal Kumar": "All"
+      },
+      "files": [
+        {
+          "path": "plaster-color.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clay_plaster/clay_plaster_diff_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 9762,
+          "color_gamma": 0.65,
+          "sha256": "44a4201e37d0e2a123b3ff9ab9217415b0f53e57c1870d4dbedc97681cce305b"
+        },
+        {
+          "path": "plaster-normal.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clay_plaster/clay_plaster_nor_gl_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 72211,
+          "color_gamma": 1,
+          "sha256": "1cb8db194c1404344d896f9fee9ad0bcce1669e2415294c9faf16f0bb2560010"
+        }
+      ]
+    },
+    {
+      "id": "clean_asphalt",
+      "page": "https://polyhaven.com/a/clean_asphalt",
+      "authors": {
+        "Dimitrios Savva": "All"
+      },
+      "files": [
+        {
+          "path": "asphalt-color.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clean_asphalt/clean_asphalt_diff_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 26695,
+          "color_gamma": 1,
+          "sha256": "f1208e437abadbed5e37933fc1c689fd975a962856883cacebcec3e8eef11fc6"
+        },
+        {
+          "path": "asphalt-normal.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clean_asphalt/clean_asphalt_nor_gl_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 30510,
+          "color_gamma": 1,
+          "sha256": "9fa20d39f223917961b03d39a0554b6b7262a3c33519a89a06236d79c4f46c05"
+        }
+      ]
+    },
+    {
+      "id": "concrete_pavement",
+      "page": "https://polyhaven.com/a/concrete_pavement",
+      "authors": {
+        "Charlotte Baglioni": "All"
+      },
+      "files": [
+        {
+          "path": "pavement-color.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavement/concrete_pavement_diff_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 58837,
+          "color_gamma": 0.85,
+          "sha256": "fd2744439acab4ac4d7e2f49637d794694cbbe28d78a7699047a5da96050fdaf"
+        },
+        {
+          "path": "pavement-normal.jpg",
+          "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavement/concrete_pavement_nor_gl_1k.jpg",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 98325,
+          "color_gamma": 1,
+          "sha256": "ca4e5a57a8ad43e4e8d0b7b66173a4d90ee2a9096f2f74798de995a0ec75e833"
+        }
+      ]
+    }
+  ],
+  "procedural_assets": [
+    {
+      "name": "fine_sand",
+      "source": "../terrain-textures.js",
+      "description": "Fine, warm sand color and normal maps generated locally in canvas."
+    },
+    {
+      "name": "palm_foliage",
+      "source": "../palm-foliage.js",
+      "description": "Shared palm frond cutout generated locally in canvas."
+    }
+  ]
+}

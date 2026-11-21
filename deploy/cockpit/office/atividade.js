@@ -1,3 +1,5 @@
+import {startCardRail} from "./card-rail.js";
+
 const storageKey = "cockpit.atividade.v1";
 const cardLimit = 30;
 const seenLimit = 240;
@@ -77,7 +79,7 @@ function clipEntries(previous, current) {
   const earlier = new Map((previous?.clipes || []).map(clip => [clip.id, clip]));
   const candidates = previous ? current.clipes.filter(clip => clip.estado === "pendente" && !earlier.has(clip.id)) : [];
   candidates.sort((first, second) => String(first.pico).localeCompare(String(second.pico)));
-  const entries = candidates.slice(-4).map(clip => ({
+  const entries = candidates.slice(-cardLimit).map(clip => ({
     key: JSON.stringify(["garimpo", clip.id]), category: "garimpo", title: "Novo trecho no Garimpo",
     body: clipLabel(clip), meta: "",
   }));
@@ -135,6 +137,7 @@ function createCard(entry, newEntry, onRead) {
   const card = document.createElement("li");
   card.className = `atividade-cartao${newEntry ? " atividade-nova" : ""}`;
   card.dataset.categoria = entry.category;
+  card.dataset.atencao = String(/falha|erro|sem espaço/i.test(entry.title));
   const control = document.createElement("button");
   control.className = "atividade-item";
   control.type = "button";
@@ -160,7 +163,9 @@ function createCard(entry, newEntry, onRead) {
   const timestamp = document.createElement("time");
   timestamp.className = "atividade-hora";
   timestamp.dateTime = new Date(entry.time).toISOString();
-  timestamp.textContent = `${timeLabels[entry.timeOrigin]} · ${dateTime.format(entry.time)}`;
+  timestamp.textContent = new Intl.DateTimeFormat("pt-BR", {timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit"}).format(entry.time);
+  timestamp.title = `${timeLabels[entry.timeOrigin]} · ${dateTime.format(entry.time)}`;
+  timestamp.setAttribute("aria-label", timestamp.title);
   const state = document.createElement("span");
   state.className = "atividade-leitura";
   content.append(timestamp, state);
@@ -181,12 +186,19 @@ export function startActivity(office) {
   const history = restore();
   const seen = new Set([...history.seen, ...history.entries.map(entry => entry.key)]);
   const cards = new Map();
+  const groups = new Map();
+  const pager = startCardRail(list, {height: 102, name: "atividade"});
 
   function syncUnread() {
     const unread = history.entries.filter(entry => !entry.read).length;
     total.textContent = unread;
     total.title = unread === 1 ? "1 notificação não lida" : `${unread} notificações não lidas`;
     if (markAll) markAll.disabled = unread === 0;
+    for (const group of groups.values()) {
+      const unread = group.entries.filter(entry => !entry.read).length;
+      group.item.dataset.lida = String(unread === 0);
+      group.state.textContent = `${unread ? `${unread} não lidas` : "Todas lidas"} · ${group.entries[0].timeOrigin === "recovered" ? "Histórico recuperado" : "Expandir eventos"}`;
+    }
   }
 
   function persist() {
@@ -205,26 +217,78 @@ export function startActivity(office) {
     return card;
   }
 
+  function renderGroups(motion = false) {
+    const focused = list.contains(document.activeElement) ? document.activeElement : null;
+    const buckets = new Map();
+    for (const entry of history.entries) {
+      const creator = entry.body.split(" · ")[0];
+      const key = JSON.stringify([entry.category, entry.title, creator, entry.timeOrigin, Math.floor(entry.time / 600000)]);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(entry);
+      if (!cards.has(entry.key)) addCard(entry, motion);
+    }
+    const ordered = [...buckets.entries()].reverse().sort((a,b) => b[1].at(-1).time-a[1].at(-1).time);
+    const nodes = ordered.map(([key, entries]) => {
+      if (entries.length === 1) return [cards.get(entries[0].key)];
+      let group = groups.get(key);
+      if (!group) {
+        const item = document.createElement("li");
+        item.className = "atividade-cartao atividade-agrupada";
+        item.dataset.categoria = entries[0].category;
+        const disclosure = document.createElement("details");
+        disclosure.className = "atividade-grupo";
+        const summary = document.createElement("summary");
+        summary.className = "atividade-item";
+        summary.innerHTML = '<span class="atividade-icone" aria-hidden="true"></span><span class="atividade-conteudo"><strong></strong><span class="atividade-texto"></span><time class="atividade-hora"></time><span class="atividade-leitura"></span></span>';
+        const children = document.createElement("ol");
+        children.className = "atividade-eventos";
+        disclosure.append(summary);
+        disclosure.addEventListener("toggle", () => { renderGroups(); syncUnread(); pager.refresh(); });
+        item.append(disclosure);
+        group = {item, disclosure, summary, children, state: summary.querySelector(".atividade-leitura"), entries};
+        groups.set(key, group);
+      }
+      group.entries = entries;
+      const last = entries.at(-1);
+      const nouns = {garimpo: "novos trechos no Garimpo", captura: "eventos de captura", edicao: "atualizações de edição", agenda: "atualizações da agenda"};
+      const noun = last.timeOrigin === "recovered" && last.category === "garimpo" ? "trechos no histórico" : nouns[last.category];
+      group.summary.querySelector("strong").textContent = `${entries.length} ${noun}`;
+      group.summary.querySelector(".atividade-icone").textContent = icons[last.category];
+      group.summary.querySelector(".atividade-texto").textContent = last.body.split(" · ")[0];
+      const timestamp = group.summary.querySelector("time");
+      timestamp.textContent = new Intl.DateTimeFormat("pt-BR", {timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit"}).format(last.time);
+      timestamp.dateTime = new Date(last.time).toISOString();
+      timestamp.setAttribute("aria-label", `${timeLabels[last.timeOrigin]} · ${dateTime.format(last.time)}`);
+      const children = [...entries].reverse().map(entry => {
+        const card = cards.get(entry.key);
+        card.classList.add("atividade-de-grupo");
+        return card;
+      });
+      return group.disclosure.open ? [group.item, ...children] : [group.item];
+    }).flat();
+    for (const [key, group] of groups) {
+      if (!buckets.has(key) || buckets.get(key).length < 2) { group.item.remove(); groups.delete(key); }
+    }
+    let cursor = list.firstElementChild;
+    for (const node of nodes) {
+      if (node === cursor) cursor = cursor.nextElementSibling;
+      else list.insertBefore(node, cursor);
+    }
+    const current = new Set(nodes);
+    for (const node of [...list.children]) if (!current.has(node)) node.remove();
+    if (focused?.isConnected && document.activeElement !== focused) focused.focus({preventScroll: true});
+  }
+
   let followLatest = true;
   function alignLatest() {
     if (!rail.open || !followLatest || !list.clientHeight) return;
-    const newest = list.lastElementChild;
-    if (!newest) return;
-    const padding = Number.parseFloat(getComputedStyle(list).paddingBlockStart) || 0;
-    const room = Math.max(0, list.clientHeight - 2 * padding);
-    const end = newest.offsetTop + newest.offsetHeight;
-    let first = newest;
-    while (first.previousElementSibling && end - first.previousElementSibling.offsetTop <= room) {
-      first = first.previousElementSibling;
-    }
-    const gap = first === list.firstElementChild ? 0 : Math.max(0, room - (end - first.offsetTop));
-    list.style.setProperty("--atividade-folga", `${Math.ceil(gap)}px`);
-    list.scrollTop = first.offsetTop - padding;
+    list.style.removeProperty("--atividade-folga");
+    list.scrollTop = 0;
   }
 
   rail.addEventListener("toggle", alignLatest);
   list.addEventListener("scroll", () => {
-    if (rail.open) followLatest = list.scrollHeight - list.clientHeight - list.scrollTop < 30;
+    if (rail.open) followLatest = list.scrollTop < 30;
   }, {passive: true});
   new ResizeObserver(alignLatest).observe(list, {box: "border-box"});
   markAll?.addEventListener("click", () => {
@@ -236,7 +300,7 @@ export function startActivity(office) {
     syncUnread();
     persist();
   });
-  list.replaceChildren(...history.entries.map(entry => addCard(entry, false)));
+  renderGroups();
   alignLatest();
   syncUnread();
   if (history.entries.length) persist();
@@ -260,13 +324,13 @@ export function startActivity(office) {
     const visibleTop = follow ? 0 : list.getBoundingClientRect().top;
     const anchor = follow ? null : [...list.children].find(card => card.getBoundingClientRect().bottom >= visibleTop);
     const anchorTop = anchor?.getBoundingClientRect().top;
-    for (const entry of added) list.append(addCard(entry, motion));
     history.entries.push(...added);
     const expired = history.entries.splice(0, Math.max(0, history.entries.length - cardLimit));
     for (const entry of expired) {
       cards.get(entry.key)?.remove();
       cards.delete(entry.key);
     }
+    renderGroups(motion);
     if (follow) alignLatest();
     else if (anchor?.isConnected) list.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
     for (const [card, before] of positions) {

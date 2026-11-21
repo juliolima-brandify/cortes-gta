@@ -2,12 +2,18 @@ import * as THREE from "three";
 import {startActivity} from "./atividade.js";
 import {startReview} from "./revisao.js";
 import {startDock} from "./dock.js";
+import {startClock, environmentHour} from "./relogio.js";
+import {environmentAt} from "./day-cycle.mjs";
+import {CameraMotion, CAMERA_MIN_ZOOM, CAMERA_MAX_ZOOM} from "./camera-motion.mjs";
+import {surfaceTextures} from "./surface-textures.js";
+import {palmFoliage} from "./palm-foliage.js";
 
 const office = document.getElementById("escritorio");
 if (office) {
   startActivity(office);
   startReview(office);
   startDock();
+  startClock();
 }
 const canvas = document.getElementById("escritorio-3d");
 if (canvas) startOffice(canvas, office);
@@ -49,7 +55,11 @@ function startOffice(canvas, office) {
   const target = new THREE.Vector3(0, 0.7, 0);
   const screenWidth = 0.52;
   const screenHeight = 0.37;
-  scene.add(new THREE.HemisphereLight(0xffe1db, 0x65558c, 2.05));
+  const ambient = new THREE.HemisphereLight(0xffe1db, 0x65558c, 2.05);
+  scene.add(ambient);
+  const warmOffice = new THREE.PointLight(0xffc28a, 0, 15, 2);
+  warmOffice.position.set(0, 3.2, 0);
+  scene.add(warmOffice);
   const sun = new THREE.DirectionalLight(0xffc599, 3.3);
   sun.position.set(-10, 15, 8);
   sun.castShadow = true;
@@ -62,15 +72,16 @@ function startOffice(canvas, office) {
   const sphere = new THREE.SphereGeometry(1, 8, 5);
   const cylinder = new THREE.CylinderGeometry(0.82, 1, 1, 8);
   const surfaces = new Map();
-  function material(color, glow = false) {
-    const key = `${color}/${glow}`;
+  const textured = surfaceTextures(renderer, () => queueFrame());
+  function material(color, glow = false, finish = null) {
+    const key = `${color}/${glow}/${finish}`;
     if (!surfaces.has(key)) {
-      surfaces.set(key, glow ? new THREE.MeshBasicMaterial({color}) : new THREE.MeshStandardMaterial({color, roughness: 0.85}));
+      surfaces.set(key, glow ? new THREE.MeshBasicMaterial({color}) : new THREE.MeshStandardMaterial({color, roughness: 0.85, ...textured(finish, color)}));
     }
     return surfaces.get(key);
   }
-  function object(parent, geometry, color, x, y, z, w, h, d, glow = false) {
-    const mesh = new THREE.Mesh(geometry, material(color, glow));
+  function object(parent, geometry, color, x, y, z, w, h, d, glow = false, finish = null) {
+    const mesh = new THREE.Mesh(geometry, material(color, glow, finish));
     mesh.position.set(x, y, z);
     mesh.scale.set(w, h, d);
     mesh.castShadow = !glow;
@@ -78,7 +89,7 @@ function startOffice(canvas, office) {
     parent.add(mesh);
     return mesh;
   }
-  const box = (parent, color, x, y, z, w, h, d, glow) => object(parent, cube, color, x, y, z, w, h, d, glow);
+  const box = (parent, color, x, y, z, w, h, d, glow, finish) => object(parent, cube, color, x, y, z, w, h, d, glow, finish);
   const round = (parent, color, x, y, z, w, h, d) => object(parent, sphere, color, x, y, z, w, h, d);
   const column = (parent, color, x, y, z, w, h, d) => object(parent, cylinder, color, x, y, z, w, h, d);
   function group(x, z, angle = 0) {
@@ -91,7 +102,7 @@ function startOffice(canvas, office) {
   const tones = {ink: 0x30253f, steel: 0x493b58, pink: 0xffadcb, coral: 0xe97793, plum: 0x77486c,
     cream: 0xffdaa5, oak: 0xc17a50, wood: 0x935269, lime: 0xa6ed9b, aqua: 0x56e9e3, neon: 0xff69bc};
 
-  box(scene, 0xf7d29b, 0, -0.43, 0, 150, 0.12, 150).castShadow = false;
+  box(scene, 0xf7d29b, 0, -0.43, 0, 150, 0.12, 150, false, "sand").castShadow = false;
   const shore = group(-0.4, -11.3, -0.12);
   box(shore, 0x52c9c4, 0, -0.33, -54, 128, 0.08, 115).castShadow = false;
   box(shore, 0x83dacf, 0, -0.30, 3.15, 125, 0.04, 2.3).castShadow = false;
@@ -100,21 +111,31 @@ function startOffice(canvas, office) {
     const z = 3.9 - Math.floor(i / 13) * 2.1 + Math.sin(i * 2.7) * 0.31;
     box(shore, i < 13 ? 0xffefd7 : 0xb2ece0, x, -0.265, z, 0.76 + i % 4 * 0.26, 0.018, 0.05).castShadow = false;
   }
-  box(scene, 0xdc917e, 0, -0.32, 5.7, 27, 0.13, 2.5);
-  box(scene, 0xfcbb9b, 0, -0.23, 5.7, 27, 0.12, 2.32);
-  for (let i = -13; i <= 13; i++) box(scene, 0xe49e8c, i, -0.165, 5.7, 0.025, 0.012, 2.22);
-  for (const z of [4.58, 6.83]) box(scene, 0xffdcbb, 0, -0.14, z, 27, 0.07, 0.10);
+  // Sidewalks sit 16.5 cm above the asphalt and meet the office entrance.
+  box(scene, 0xd5d1c5, 0, -0.255, 5.1, 80, 0.30, 1.65, false, "pavement");
+  box(scene, 0xd5d1c5, 0, -0.255, 10.975, 80, 0.30, 1.35, false, "pavement");
+  box(scene, 0x96999e, 0, -0.32, 8.1, 80, 0.10, 4.4, false, "asphalt").castShadow = false;
+  for (const z of [5.91, 10.29]) box(scene, 0xeee6d7, 0, -0.18, z, 80, 0.17, 0.13);
+  for (const z of [8.04, 8.16]) {
+    box(scene, 0xf1c658, 0, -0.263, z, 80, 0.008, 0.035).castShadow = false;
+  }
+  for (const z of [6.15, 10.05]) {
+    box(scene, 0xece9dc, 0, -0.263, z, 80, 0.008, 0.045).castShadow = false;
+  }
+  for (let index = 0; index < 7; index++) {
+    box(scene, 0xf2ede0, -2.3 + index * 0.46, -0.258, 8.1, 0.27, 0.008, 3.65).castShadow = false;
+  }
 
   box(scene, tones.plum, 0, -0.18, 0, 11.4, 0.38, 8.5);
   for (let x = 0; x < 12; x++) {
     for (let z = 0; z < 9; z++) {
-      box(scene, (x + z) % 2 ? 0xe8a780 : 0xf6be91, (x - 5.5) * 0.94, 0.035, (z - 4) * 0.93, 0.925, 0.055, 0.914);
+      box(scene, (x + z) % 2 ? 0xe8a780 : 0xf6be91, (x - 5.5) * 0.94, 0.035, (z - 4) * 0.93, 0.925, 0.055, 0.914, false, "floor");
     }
   }
   box(scene, tones.coral, 0, -0.055, 4.25, 11.35, 0.1, 0.1);
   box(scene, tones.coral, 5.71, -0.055, 0, 0.1, 0.1, 8.5);
-  box(scene, tones.plum, 0, 1.23, -4.14, 11.25, 2.42, 0.19);
-  box(scene, 0x995974, -5.55, 1.23, 0, 0.19, 2.42, 8.38);
+  box(scene, tones.plum, 0, 1.23, -4.14, 11.25, 2.42, 0.19, false, "plaster");
+  box(scene, 0x995974, -5.55, 1.23, 0, 0.19, 2.42, 8.38, false, "plaster");
   box(scene, tones.pink, 0, 2.46, -4.14, 11.46, 0.16, 0.34);
   box(scene, tones.pink, -5.55, 2.46, 0, 0.34, 0.16, 8.54);
   box(scene, tones.aqua, 0.07, 2.24, -4.025, 11.05, 0.045, 0.04, true);
@@ -126,8 +147,8 @@ function startOffice(canvas, office) {
     for (const y of [1.03, 1.27, 1.51, 1.75]) box(scene, 0xda91a0, -5.365, y, z, 0.025, 0.026, 1.5);
   }
   for (const x of [-4.25, 3.88]) {
-    box(scene, tones.wood, x, 0.99, -3.82, 1.27, 1.88, 0.4);
-    for (const y of [0.22, 0.77, 1.32, 1.91]) box(scene, tones.oak, x, y, -3.57, 1.31, 0.07, 0.42);
+    box(scene, tones.wood, x, 0.99, -3.82, 1.27, 1.88, 0.4, false, "wood");
+    for (const y of [0.22, 0.77, 1.32, 1.91]) box(scene, tones.oak, x, y, -3.57, 1.31, 0.07, 0.42, false, "wood");
     for (let row = 0; row < 3; row++) {
       for (let book = 0; book < 7; book++) {
         const height = 0.21 + (row * 3 + book * 13) % 6 * 0.04;
@@ -143,23 +164,16 @@ function startOffice(canvas, office) {
   }
   for (let i = 0; i < 4; i++) box(scene, 0xffdebb, 0.30, 1.12 + i * 0.21, -3.93, 1.96, 0.025, 0.021, true);
 
+  const createPalmCrown = palmFoliage();
   function palm(x, z, size) {
     const tree = group(x, z, (x + z) * 0.2);
+    tree.position.y = z >= 4.275 && z <= 5.925 ? -0.105 : -0.37;
     tree.scale.setScalar(size);
     for (let i = 0; i < 7; i++) {
       const segment = column(tree, i % 2 ? 0xa86853 : 0xbe8763, i * 0.055, 0.19 + i * 0.34, 0, 0.15 - i * 0.011, 0.38, 0.14 - i * 0.009);
       segment.rotation.z = -0.14;
     }
-    for (let i = 0; i < 8; i++) {
-      const frond = new THREE.Group();
-      frond.position.set(0.34, 2.38, 0);
-      frond.rotation.y = i * Math.PI / 4;
-      tree.add(frond);
-      for (let j = 0; j < 4; j++) {
-        const leaf = box(frond, i % 2 ? 0x3d9b77 : 0x69b58c, 0.28 + j * 0.27, 0.0 - j * j * 0.038, 0, 0.42 - j * 0.035, 0.07, 0.36 - j * 0.062);
-        leaf.rotation.z = -j * 0.09;
-      }
-    }
+    tree.add(createPalmCrown());
   }
   palm(-8.0, -3.1, 1.38);
   palm(7.0, -4.7, 1.17);
@@ -172,7 +186,8 @@ function startOffice(canvas, office) {
   box(cabana, 0xffafd1, 0, 1.16, 0, 1.53, 0.15, 1.0);
   box(cabana, 0x97ede2, 0.10, 0.84, 0.416, 0.66, 0.32, 0.025, true);
 
-  const car = group(6.7, 5.36, 0.09);
+  const car = group(6.7, 7.1, 0.02);
+  car.position.y = -0.21;
   box(car, 0x4fcabf, 0, 0.30, 0, 2.1, 0.34, 0.87);
   box(car, 0x6ce0d2, 0.12, 0.55, 0, 1.13, 0.25, 0.72);
   box(car, 0x454264, 0.12, 0.57, 0.365, 0.85, 0.18, 0.02);
@@ -198,16 +213,23 @@ function startOffice(canvas, office) {
   }
   function workstation(x, z, angle, shirt, skin, colors, extra) {
     const desk = group(x, z, angle);
-    box(desk, tones.oak, 0, 0.89, 0, 1.85, 0.13, 0.91);
-    for (const side of [-0.77, 0.77]) box(desk, tones.wood, side, 0.46, -0.02, 0.13, 0.83, 0.75);
+    box(desk, tones.oak, 0, 0.89, 0, 1.85, 0.13, 0.91, false, "wood");
+    for (const side of [-0.77, 0.77]) box(desk, tones.wood, side, 0.46, -0.02, 0.13, 0.83, 0.75, false, "wood");
     box(desk, tones.plum, 0.60, 0.56, 0.20, 0.35, 0.48, 0.43);
     monitor(desk, -0.35, colors);
     const display = monitor(desk, 0.36, colors.slice().reverse());
     box(desk, 0xefd1a8, 0.0, 0.98, 0.29, 0.53, 0.034, 0.17);
     for (const y of [0.25, 0.29, 0.33]) box(desk, 0x8b6b72, 0, 1.001, y, 0.45, 0.004, 0.013);
     column(desk, tones.ink, 0.03, 0.28, 0.91, 0.22, 0.45, 0.22);
-    box(desk, 0x4a3c58, 0.03, 0.53, 0.91, 0.61, 0.12, 0.56);
-    box(desk, 0x58415c, 0.03, 0.82, 1.16, 0.62, 0.52, 0.11);
+    const chair = [box(desk, 0x4a3c58, 0.03, 0.53, 0.91, 0.61, 0.12, 0.56, false, "fabric"),
+      box(desk, 0x58415c, 0.03, 0.82, 1.16, 0.62, 0.52, 0.11, false, "fabric")];
+    chair.forEach(mesh => { mesh.material = mesh.material.clone(); });
+    const halo = new THREE.Mesh(new THREE.RingGeometry(0.54, 0.65, 48),
+      new THREE.MeshBasicMaterial({color: colors[0], transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false}));
+    halo.rotation.x = -Math.PI / 2;
+    halo.position.set(0.03, 0.06, 0.91);
+    halo.visible = false;
+    desk.add(halo);
     box(desk, 0x525b7c, 0.03, 0.63, 0.76, 0.39, 0.23, 0.36);
     box(desk, shirt, 0.03, 0.91, 0.77, 0.45, 0.43, 0.25);
     const head = new THREE.Group();
@@ -229,6 +251,13 @@ function startOffice(canvas, office) {
       point: desk.localToWorld(new THREE.Vector3(0, 1.94, -0.1)),
       display,
       forward: new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle)),
+      highlight(active) {
+        halo.visible = active;
+        chair.forEach(mesh => {
+          mesh.material.emissive.setHex(active ? colors[0] : 0x000000);
+          mesh.material.emissiveIntensity = active ? 0.55 : 0;
+        });
+      },
       pose(time, active, moving) {
         head.rotation.y = moving ? 0.36 * Math.sin(time * 2.45) : 0;
         head.rotation.x = moving ? -0.12 - 0.10 * Math.sin(time * 3.5) : 0;
@@ -258,7 +287,18 @@ function startOffice(canvas, office) {
   const pace = {captura: 0.64, garimpo: 0.88, edicao: 1.14, agenda: 0.78};
   const signal = {captura: false, edicao: false, garimpoUntil: 0, agendaUntil: 0};
   const angles = [Math.PI / 4, Math.PI / 4 + 0.34, Math.PI / 4 - 0.31];
-  let view = 0;
+  const orbit = {angle: angles[0], zoom: 1, x: 0, z: 0};
+  try {
+    const saved = JSON.parse(sessionStorage.getItem("cockpit.camera.v1"));
+    if (saved && Object.keys(orbit).every(key => Number.isFinite(saved[key]))) {
+      Object.assign(orbit, {angle: saved.angle, zoom: THREE.MathUtils.clamp(saved.zoom, CAMERA_MIN_ZOOM, CAMERA_MAX_ZOOM),
+        x: THREE.MathUtils.clamp(saved.x, -7, 7), z: THREE.MathUtils.clamp(saved.z, -7, 7)});
+    }
+  } catch { /* The camera also works without browser storage. */ }
+  const cameraMotion = new CameraMotion(orbit);
+  const desiredOrbit = cameraMotion.target;
+  let orbitSaveTimer;
+  let drag = null;
   let readyToPaint = false;
   let contextAvailable = true;
   let frame = 0;
@@ -272,8 +312,44 @@ function startOffice(canvas, office) {
   const stationKeys = Object.keys(stations);
   renderer.shadowMap.autoUpdate = false;
 
+  const colorFrom = new THREE.Color();
+  const colorTo = new THREE.Color();
+  function updateEnvironment(hour) {
+    const {from, to, blend} = environmentAt(hour);
+    const color = (target, key) => target.lerpColors(colorFrom.setHex(from[key]), colorTo.setHex(to[key]), blend);
+    color(scene.background, "sky");
+    color(ambient.color, "skyLight");
+    color(ambient.groundColor, "groundLight");
+    color(sun.color, "sunColor");
+    ambient.intensity = THREE.MathUtils.lerp(from.ambient, to.ambient, blend);
+    sun.intensity = THREE.MathUtils.lerp(from.keyLight, to.keyLight, blend);
+    warmOffice.intensity = THREE.MathUtils.lerp(from.warm, to.warm, blend);
+    renderer.toneMappingExposure = THREE.MathUtils.lerp(from.exposure, to.exposure, blend);
+    sun.position.set(...from.position).lerp(new THREE.Vector3(...to.position), blend);
+    renderer.shadowMap.needsUpdate = true;
+    queueFrame();
+  }
+  document.addEventListener("cockpit:tempo", ({detail}) => updateEnvironment(detail.hour));
+  updateEnvironment(environmentHour());
+
   function queueFrame() {
     if (!frame && readyToPaint && contextAvailable && !document.hidden) frame = requestAnimationFrame(paint);
+  }
+
+  office.addEventListener("cockpit:destaque", ({detail}) => {
+    for (const id of stationKeys) {
+      const active = !route.station && id === detail.station;
+      stations[id].highlight(active);
+      buttons.find(button => button.dataset.mesa === id)?.classList.toggle("mesa-destacada", active);
+    }
+    queueFrame();
+  });
+  for (const button of buttons) {
+    const highlight = active => office.dispatchEvent(new CustomEvent("cockpit:destaque", {detail: {station: active ? button.dataset.mesa : null}}));
+    button.addEventListener("pointerenter", () => highlight(true));
+    button.addEventListener("pointerleave", () => highlight(false));
+    button.addEventListener("focus", () => highlight(true));
+    button.addEventListener("blur", () => highlight(false));
   }
 
   function paint(now) {
@@ -282,11 +358,17 @@ function startOffice(canvas, office) {
     const activity = {captura: signal.captura, edicao: signal.edicao,
       garimpo: now < signal.garimpoUntil, agenda: now < signal.agendaUntil};
     const moving = !reducedMotion.matches && Object.values(activity).some(Boolean);
-    if ((moving || flight) && now - lastPaint < (flight ? 24 : 48)) {
+    if (moving && !flight && !cameraMotion.active && now - lastPaint < 48) {
       queueFrame();
       return;
     }
     lastPaint = now;
+    if (cameraMotion.active && !route.station && !flight) {
+      cameraMotion.step(now, reducedMotion.matches);
+      pose = roomPose(null);
+      moveCamera();
+      positionButtons();
+    }
     if (flight) {
       const progress = THREE.MathUtils.clamp((now - flight.started) / flight.duration, 0, 1);
       if (flight.via && progress < 0.45) {
@@ -309,16 +391,17 @@ function startOffice(canvas, office) {
       button.classList.toggle("mesa-ocupada", active);
     }
     renderer.render(scene, camera);
-    if (moving || flight) queueFrame();
+    if (moving || flight || (cameraMotion.active && !route.station)) queueFrame();
   }
 
   function roomPose(station) {
     const aspect = width / height;
     const scales = stationKeys.map(() => 1);
     if (!station) {
-      const angle = angles[view];
-      return {position: new THREE.Vector3(31 * Math.sin(angle), 31 / Math.sqrt(2) + target.y, 31 * Math.cos(angle)),
-        aim: target, halfHeight: Math.max(6.75, 8.5 / aspect), scales};
+      const angle = orbit.angle;
+      const aim = target.clone().add(new THREE.Vector3(orbit.x, 0, orbit.z));
+      return {position: new THREE.Vector3(31 * Math.sin(angle) + aim.x, 31 / Math.sqrt(2) + aim.y, 31 * Math.cos(angle) + aim.z),
+        aim, halfHeight: Math.max(6.75, 8.5 / aspect) / orbit.zoom, scales};
     }
     const top = (document.querySelector(".topo")?.getBoundingClientRect().bottom || 0) + 13;
     const bottom = (document.querySelector(".menu")?.getBoundingClientRect().top || height) - 13;
@@ -385,6 +468,7 @@ function startOffice(canvas, office) {
   function navigate(next) {
     const previous = route;
     route = next;
+    stationKeys.forEach(id => stations[id].highlight(false));
     if (!contextAvailable) {
       showFallback(route);
       return;
@@ -397,9 +481,9 @@ function startOffice(canvas, office) {
       moveCamera();
       finishNavigation();
     } else {
-      const via = previous.station && route.station ? roomPose(null) : null;
+      const via = null;
       office.dataset.transicao = "ativa";
-      flight = {from: pose, to, via, started: performance.now(), duration: via ? 900 : 690};
+      flight = {from: pose, to, via, started: performance.now(), duration: previous.station && route.station ? 320 : 620};
     }
     queueFrame();
   }
@@ -440,7 +524,59 @@ function startOffice(canvas, office) {
   });
   office.addEventListener("cockpit:navegar", ({detail}) => navigate(detail));
   rotate.disabled = false;
-  rotate.addEventListener("click", () => { view = (view + 1) % angles.length; draw(); });
+  function changeOrbit() {
+    cameraMotion.request(performance.now());
+    const zoomLabel = document.getElementById("camera-zoom");
+    const zoomText = `${Math.round(desiredOrbit.zoom * 100)}%`;
+    if (zoomLabel && zoomLabel.textContent !== zoomText) zoomLabel.textContent = zoomText;
+    clearTimeout(orbitSaveTimer);
+    orbitSaveTimer = setTimeout(() => {
+      try { sessionStorage.setItem("cockpit.camera.v1", JSON.stringify(desiredOrbit)); } catch { /* Optional preference. */ }
+    }, 200);
+    queueFrame();
+  }
+  document.getElementById("camera-zoom").textContent = `${Math.round(orbit.zoom * 100)}%`;
+  rotate.addEventListener("click", () => { desiredOrbit.angle += Math.PI / 2; changeOrbit(); });
+  for (const button of office.querySelectorAll("[data-camera]")) {
+    button.addEventListener("click", () => {
+      if (button.dataset.camera === "recentrar") Object.assign(desiredOrbit, {angle: angles[0], zoom: 1, x: 0, z: 0});
+      else desiredOrbit.zoom *= button.dataset.camera === "aproximar" ? 1.15 : 1 / 1.15;
+      changeOrbit();
+    });
+  }
+  canvas.addEventListener("wheel", event => {
+    if (route.station || flight) return;
+    event.preventDefault();
+    const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? height : 1);
+    desiredOrbit.zoom *= Math.exp(-THREE.MathUtils.clamp(delta, -160, 160) * 0.0012);
+    changeOrbit();
+  }, {passive: false});
+  canvas.addEventListener("pointerdown", event => {
+    if (route.station || flight || event.button > 2) return;
+    drag = {id: event.pointerId, x: event.clientX, y: event.clientY, rotate: event.shiftKey || event.button === 2};
+    canvas.setPointerCapture(event.pointerId);
+    canvas.classList.add("camera-arrastando");
+  });
+  canvas.addEventListener("pointermove", event => {
+    if (!drag || drag.id !== event.pointerId) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    if (drag.rotate || event.shiftKey) desiredOrbit.angle -= dx * 0.006;
+    else {
+      const scale = 2 * pose.halfHeight / height;
+      const angle = desiredOrbit.angle;
+      desiredOrbit.x -= scale * (dx * Math.cos(angle) + dy * Math.sin(angle) * Math.SQRT2);
+      desiredOrbit.z += scale * (dx * Math.sin(angle) - dy * Math.cos(angle) * Math.SQRT2);
+    }
+    changeOrbit();
+  });
+  const stopDrag = () => { drag = null; canvas.classList.remove("camera-arrastando"); };
+  canvas.addEventListener("pointerup", stopDrag);
+  canvas.addEventListener("pointercancel", stopDrag);
+  canvas.addEventListener("lostpointercapture", stopDrag);
+  canvas.addEventListener("contextmenu", event => event.preventDefault());
   canvas.addEventListener("webglcontextlost", event => {
     event.preventDefault(); contextAvailable = false; rotate.disabled = true; notice.hidden = false;
     flight = null;

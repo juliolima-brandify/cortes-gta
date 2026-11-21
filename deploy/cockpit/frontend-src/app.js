@@ -7,7 +7,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => (
 const num = new Intl.NumberFormat("pt-BR");
 const clock = new Intl.DateTimeFormat("pt-BR", {timeZone: "America/Sao_Paulo", timeStyle: "short"});
 const day = new Intl.DateTimeFormat("pt-BR", {timeZone: "UTC", dateStyle: "long"});
-const views = {escritorio: "Escritório", torre: "Torre ao vivo", cortes: "Feed de cortes", edicao: "Em edição", agenda: "Agenda"};
+const views = {escritorio: "Escritório", torre: "Captura", cortes: "Garimpo", edicao: "Edição", agenda: "Agenda"};
 const platforms = {twitch: "Twitch", youtube: "YouTube", kick: "Kick"};
 const games = {"gta-vi": "GTA VI", "gta-v-rp": "GTA V / RP"};
 const decisions = {pendente: "Para revisar", aprovado: "Aprovado", recusado: "Recusado", finalizado: "Vertical pronto"};
@@ -23,12 +23,15 @@ let pendingRequest;
 let toastTimer;
 let officeUnavailable = false;
 let officeSnapshotAt = 0;
+const viewPositions = new Map();
+const feedPreferences = new Map();
+let explicitFeedCreator = null;
 let pendingReview;
 const officeStations = {
   captura: ["Captura", "torre"],
   garimpo: ["Garimpo", "cortes"],
   edicao: ["Edição", "edicao"],
-  agenda: ["Agendamento", "agenda"],
+  agenda: ["Agenda", "agenda"],
 };
 
 function time(value) {
@@ -65,10 +68,25 @@ function changeView() {
   const stationName = station ? officeStations[station][0] : views[current];
   const panel = $("painel-flutuante");
   const changing = panel && panel.dataset.view !== current;
+  if (changing && panel.dataset.view) viewPositions.set(panel.dataset.view, panel.scrollTop);
+  if (changing && ["cortes", "edicao"].includes(panel.dataset.view)) {
+    feedPreferences.set(panel.dataset.view, {creator: $("filtro-criador").value, state: $("filtro-estado").value, order: $("ordem").value, limit});
+  }
+  if (changing && ["cortes", "edicao"].includes(current)) {
+    const preferences = feedPreferences.get(current);
+    $("filtro-criador").value = preferences?.creator || "todos";
+    $("filtro-estado").value = preferences?.state || "pendente";
+    $("ordem").value = preferences?.order || "nota";
+    limit = preferences?.limit || 12;
+  }
+  if (explicitFeedCreator !== null) {
+    $("filtro-criador").value = explicitFeedCreator;
+    $("filtro-estado").value = "todos";
+    explicitFeedCreator = null;
+    limit = 12;
+  }
   if (current !== "cortes") pendingReview = null;
   for (const section of document.querySelectorAll(".tela")) section.hidden = section.id !== screen;
-  if (current === "edicao") $("filtro-criador").value = "todos";
-  limit = 12;
   document.querySelectorAll("[data-view]").forEach((link) => {
     if (link.dataset.view === current) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
@@ -79,7 +97,7 @@ function changeView() {
     const restoreFocus = !station && panel.contains(document.activeElement);
     const monitorTitle = $("monitor-setor");
     panel.hidden = Boolean(monitorTitle) || !station;
-    panel.scrollTop = 0;
+    panel.scrollTop = viewPositions.get(current) || 0;
     panel.dataset.view = current;
     panel.setAttribute("aria-label", station ? `Computador de ${stationName}` : "Escritório");
     office.inert = Boolean(station);
@@ -213,6 +231,7 @@ function openDesktop(view) {
   if (view !== currentView() || view === "escritorio") return;
   const panel = $("painel-flutuante");
   panel.hidden = false;
+  panel.scrollTop = viewPositions.get(view) || 0;
   if (pendingReview && data && view === "cortes") {
     const id = pendingReview;
     pendingReview = null;
@@ -266,21 +285,55 @@ function renderFeed() {
   )).join("") || `<p class="vazio">${editing && creator === "todos" ? "Os cortes aprovados pra edição aparecem aqui." : "Nenhum corte com esses filtros."}</p>`);
 }
 
+function networkTone(status) {
+  const value = String(status).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/rascunho|versao anterior|versao de|erro|falha/.test(value)) return "atencao";
+  if (/publicad/.test(value)) return "publicado";
+  if (/agendad|programad/.test(value)) return "agendado";
+  return "registro";
+}
+function agendaTimestamp(item) {
+  const parts = /^(\d{1,2})(?:h|:)(\d{2})?/.exec(item.horario || "");
+  if (!parts || !/^\d{4}-\d{2}-\d{2}$/.test(item.dia || "")) return NaN;
+  return Date.parse(`${item.dia}T${parts[1].padStart(2,"0")}:${parts[2] || "00"}:00-03:00`);
+}
 function renderAgenda() {
   const prontos = data.clipes.filter((clip) => clip.edicao?.estado === "pronto");
   $("prontos-secao").hidden = prontos.length === 0;
   tileHtml("prontos-itens", prontos.map((clip) => `<article class="agenda-item pronto-item">
     <div><h3>${esc(clipTitle(clip))}</h3><p>${esc(clip.criador)} · Vertical aprovado</p></div>
     <button class="botao discreto" type="button" data-corte="${esc(clip.id)}">Ver e baixar MP4</button></article>`).join(""));
-  $("data-agenda").textContent = data.agenda.length
-    ? day.format(new Date(data.agenda[0].dia + "T00:00:00Z")) : "Publicações";
-  tileHtml("agenda-itens", data.agenda.map((item) => (
-    `<article class="agenda-item"><time>${esc(item.horario)}</time><div><h3>${esc(item.titulo)}</h3>
-    <p>${esc(item.criador)} · ${esc(publicationStates[item.estado])}</p><div class="redes">
-    ${Object.entries(item.redes).filter(([, status]) => status && status !== "—" && status !== "-")
-      .map(([name, status]) => `<span class="etiqueta">${esc(name)} · ${esc(status)}</span>`).join("")}
-    </div></div>${item.video ? `<button class="botao discreto" type="button" data-vertical="${esc(item.id)}">Ver vertical</button>` : ""}</article>`
-  )).join("") || '<p class="vazio">Aguardando o registro dos agendamentos.</p>');
+  $("data-agenda").textContent = "Programação por rede";
+  const sorted = [...data.agenda].sort((a,b) => (agendaTimestamp(a) || 0)-(agendaTimestamp(b) || 0));
+  const now = Date.now();
+  const next = sorted.find(item => item.estado === "agendado" && agendaTimestamp(item) > now);
+  const attention = sorted.filter(item => Object.values(item.redes || {}).some(status => networkTone(status) === "atencao"));
+  const upcoming = sorted.filter(item => item.estado !== "publicado");
+  const published = sorted.filter(item => item.estado === "publicado");
+  const summary = `<div class="agenda-resumo"><div><strong>${upcoming.length}</strong><span>Agendamentos e registros</span></div><div><strong>${published.length}</strong><span>Publicados</span></div><div class="agenda-resumo-atencao"><strong>${attention.length}</strong><span>Com redes para conferir</span></div></div>`;
+  const section = (title, items, publishedGroup = false) => {
+    if (!items.length) return "";
+    let previousDay;
+    const rows = items.map(item => {
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(item.dia) ? day.format(new Date(item.dia+"T00:00:00Z")) : "Data não informada";
+      const dateHeader = previousDay === item.dia ? "" : `<h4 class="agenda-dia">${esc(date)}</h4>`;
+      previousDay = item.dia;
+      const networks = Object.entries(item.redes || {}).filter(([,status]) => status && status !== "—" && status !== "-");
+      const pending = networks.some(([,status]) => networkTone(status) === "atencao");
+      return `${dateHeader}<article class="agenda-item ${publishedGroup ? "agenda-publicada" : ""} ${next === item ? "agenda-proxima" : ""}">
+        <div class="agenda-horario"><time>${esc(item.horario)}</time>${next === item ? '<span>PRÓXIMO</span>' : ""}</div>
+        <div><h3>${esc(item.titulo)}</h3><p>${esc(item.criador)} · ${esc(publicationStates[item.estado] || item.estado)}</p>
+        <div class="redes">${networks.map(([name,status]) => {
+          const short = /instagram/i.test(name) ? "IG" : /tiktok/i.test(name) ? "TT" : /youtube/i.test(name) ? "YT" : name.slice(0,2).toUpperCase();
+          return `<span class="rede-status rede-${networkTone(status)}"><b>${esc(short)}</b><span>${esc(name)}<small>${esc(status)}</small></span></span>`;
+        }).join("")}</div>
+        ${pending ? '<p class="agenda-pendencia">● Conferir as redes sinalizadas: há rascunho, versão diferente ou falha registrada.</p>' : ""}
+        </div>${item.video ? `<button class="botao discreto" type="button" data-vertical="${esc(item.id)}">Ver vertical</button>` : ""}</article>`;
+    }).join("");
+    return `<section class="agenda-grupo"><div class="agenda-grupo-head"><h3>${title}</h3><span>${items.length} vídeos</span></div>${rows}</section>`;
+  };
+  tileHtml("agenda-itens", sorted.length ? summary + section("Agendamentos e pendências", upcoming) + section("Publicados", published, true)
+    : '<p class="vazio">Aguardando o registro dos agendamentos.</p>');
 }
 
 function renderView() {
@@ -292,16 +345,63 @@ function renderView() {
   else renderAgenda();
 }
 
+let detailDirty = false;
+let detailBusy = false;
+function setDetailDirty(dirty) {
+  detailDirty = dirty;
+  $("detalhe").toggleAttribute("data-pendente", dirty);
+  const badge = $("dialog-pendente");
+  if (badge) badge.hidden = !dirty;
+}
+function setDetailBusy(busy) {
+  detailBusy = busy;
+  $("detalhe").setAttribute("aria-busy", String(busy));
+  const close = $("detalhe").querySelector("[data-fechar-detalhe]");
+  if (close) close.disabled = busy;
+  const body = $("detalhe").querySelector(".dialog-corpo");
+  if (body) body.inert = busy;
+}
+function requestDetailClose(action = () => $("detalhe").close()) {
+  if (detailBusy) return;
+  if (!detailDirty) { action(); return; }
+  if ($("descartar-ajustes")) return;
+  const previousFocus = document.activeElement;
+  const prompt = document.createElement("section");
+  prompt.id = "descartar-ajustes";
+  prompt.className = "descartar-ajustes";
+  prompt.setAttribute("role", "alertdialog");
+  prompt.setAttribute("aria-modal", "true");
+  prompt.setAttribute("aria-labelledby", "descartar-titulo");
+  prompt.innerHTML = '<div><h3 id="descartar-titulo">Você tem alterações não salvas</h3><p id="descartar-descricao">Continue editando ou descarte os ajustes desta janela.</p></div><div><button class="botao acao" type="button" data-continuar>Continuar editando</button><button class="botao discreto" type="button" data-descartar>Descartar alterações</button></div>';
+  prompt.setAttribute("aria-describedby", "descartar-descricao");
+  const background = [$("detalhe").querySelector(".dialog-head"), $("detalhe").querySelector(".dialog-corpo")];
+  background.forEach(node => { if (node) node.inert = true; });
+  $("dialog-conteudo").append(prompt);
+  const clearPrompt = () => { background.forEach(node => { if (node) node.inert = false; }); prompt.remove(); };
+  const dismiss = () => { clearPrompt(); if (previousFocus?.isConnected) previousFocus.focus(); };
+  prompt.querySelector("[data-continuar]").addEventListener("click", dismiss);
+  prompt.querySelector("[data-descartar]").addEventListener("click", () => { setDetailDirty(false); clearPrompt(); action(); });
+  prompt.addEventListener("keydown", event => {
+    if (event.key !== "Tab") return;
+    const buttons = [...prompt.querySelectorAll("button")];
+    event.preventDefault();
+    buttons[(buttons.indexOf(document.activeElement) + 1) % buttons.length].focus();
+  });
+  prompt.querySelector("[data-continuar]").focus();
+}
 function dialog(title, info, html) {
   const detalhe = $("detalhe");
-  detalhe.classList.remove("editor-aberto");
+  setDetailDirty(false);
+  setDetailBusy(false);
+  detalhe.classList.remove("editor-aberto", "revisao-aberta");
   $("dialog-conteudo").innerHTML = `<header class="dialog-head"><div><h2 id="dialog-titulo">${esc(title)}</h2>
-    <p>${esc(info)}</p></div><form method="dialog"><button class="botao discreto" type="submit">Fechar</button></form></header>${html}`;
+    <p>${esc(info)}</p><span id="dialog-pendente" class="dialog-pendente" role="status" hidden>● Alterações não salvas</span></div><button class="botao discreto" type="button" data-fechar-detalhe aria-label="Fechar janela">Fechar <span aria-hidden="true">×</span></button></header><div class="dialog-corpo">${html}</div>`;
+  detalhe.querySelector("[data-fechar-detalhe]").addEventListener("click", () => requestDetailClose());
   if (detalhe.open) detalhe.querySelector(".dialog-head button").focus();
   else detalhe.showModal();
 }
 
-function zoomClip(id) {
+function zoomClip(id, sequence = null) {
   const clip = data.clipes.find((item) => item.id === id);
   if (!clip) return;
   if (clip.vertical) {
@@ -312,12 +412,24 @@ function zoomClip(id) {
     abrirEditor(clip);
     return;
   }
+  const creator = $("filtro-criador").value;
+  const candidates = data.clipes.filter(item => item.estado === clip.estado && (creator === "todos" || item.criador === creator));
+  if ($("ordem").value === "data") candidates.sort((a, b) => b.pico.localeCompare(a.pico));
+  const reviewIds = sequence || candidates.map(item => item.id);
+  if (!reviewIds.includes(id)) reviewIds.unshift(id);
+  const position = reviewIds.indexOf(id);
   const adjust = clip.ajuste;
   const inicio = adjust.inicio ?? clip.sugestao?.inicio ?? 0;
   const fim = adjust.fim ?? clip.sugestao?.fim ?? clip.duracao;
   dialog(clipTitle(clip), `${clip.criador} · ${decisions[clip.estado]}`,
-    `${clip.previa ? `<video id="review-video" controls playsinline preload="metadata" src="${esc(clip.previa)}" poster="${esc(clip.poster)}"></video>`
+    `<div class="revisao-navegacao"><span><b>${position + 1}</b> / ${reviewIds.length} <span>na seleção</span></span>
+      <div><button class="botao discreto" type="button" data-revisao-passo="-1" ${position === 0 ? "disabled" : ""}>← Anterior</button>
+      <button class="botao discreto" type="button" data-revisao-passo="1" ${position === reviewIds.length - 1 ? "disabled" : ""}>Próximo →</button></div></div>
+      <div class="revisao-layout"><section class="revisao-midia" aria-label="Prévia do corte">
+      ${clip.previa ? `<video id="review-video" controls playsinline preload="metadata" src="${esc(clip.previa)}" poster="${esc(clip.poster)}"></video>`
       : '<p class="aviso">O arquivo da prévia está indisponível.</p>'}
+      <div class="revisao-fonte"><span>${Math.round(clip.duracao)} s de gravação</span><span>${esc(clip.criador)}</span></div>
+      </section><aside class="revisao-dados">
       <section class="avaliacao"><h3>${clip.avaliacao.nota}/100 · Nota de triagem</h3>
         <p>${esc(clip.motivo)}</p>
         <div class="subnotas"><span>${esc(clip.avaliacao.origem)}</span><span>Sinal da live ${clip.avaliacao.sinal}/100</span><span>Ritmo até o pico ${clip.avaliacao.ritmo}/100</span>
@@ -326,25 +438,35 @@ function zoomClip(id) {
         ${clip.avaliacao.contexto !== null ? `<span>Contexto da fala ${clip.avaliacao.contexto}/100</span>` : ""}
         <span>Vigia ${num.format(clip.nota_vigia)} pontos</span></div>
       </section>
-      ${clip.trecho ? `<p class="transcricao">${esc(clip.trecho)}</p>` : ""}
+      ${clip.trecho ? `<details class="revisao-transcricao"><summary>Transcrição da fala</summary><p class="transcricao">${esc(clip.trecho)}</p></details>` : ""}
       <div class="ajustes"><label>Início (s)<input id="inicio" type="number" min="0" max="${clip.duracao - 2}" step="any" value="${inicio}"></label>
       <label>Fim (s)<input id="fim" type="number" min="2" max="${clip.duracao}" step="any" value="${fim}"></label>
       <button id="testar" class="botao discreto" ${!clip.previa ? "disabled" : ""}>Testar trecho</button>
       ${clip.sugestao ? '<button id="usar-sugestao" class="botao discreto">Usar sugestão</button>' : ""}</div>
-      <p id="aviso-revisao" class="aviso" role="alert" hidden></p>
+      </aside></div><p id="aviso-revisao" class="aviso" role="alert" hidden></p>
       <div class="dialog-acoes">
-        <button data-decisao="aprovado" class="botao acao">Aprovar pra edição</button>
+        <button data-decisao="aprovado" data-avancar="true" class="botao acao">Aprovar e próximo →</button>
+        <button data-decisao="aprovado" class="botao discreto">Aprovar e abrir edição</button>
         <button data-decisao="${clip.estado}" class="botao discreto">Salvar ajuste</button>
         <button data-decisao="recusado" class="botao negar">Recusar</button>
       </div>
       <p class="dialog-meta">Pico aos ${num.format(clip.pico_relativo)} s${safeUrl(clip.url)
         ? ` · <a href="${safeUrl(clip.url)}" target="_blank" rel="noopener noreferrer">Live de origem</a>` : ""}</p>`);
+  $("detalhe").classList.add("revisao-aberta");
+  for (const button of $("dialog-conteudo").querySelectorAll("[data-revisao-passo]")) {
+    button.addEventListener("click", () => {
+      const next = reviewIds[position + Number(button.dataset.revisaoPasso)];
+      if (next && data.clipes.some(item => item.id === next)) requestDetailClose(() => zoomClip(next, reviewIds));
+    });
+  }
   const video = $("review-video");
+  for (const input of [$("inicio"), $("fim")]) input.addEventListener("input", () => setDetailDirty(true));
   const controls = [...$("dialog-conteudo").querySelectorAll("[data-decisao]")];
   $("usar-sugestao")?.addEventListener("click", () => {
     $("inicio").value = clip.sugestao.inicio;
     $("fim").value = clip.sugestao.fim;
     if (video) video.currentTime = clip.sugestao.inicio;
+    setDetailDirty(true);
   });
   let pararEm = null;
   function validate() {
@@ -381,13 +503,23 @@ function zoomClip(id) {
       const ajuste = validate();
       $("aviso-revisao").hidden = true;
       controls.forEach((control) => { control.disabled = true; });
+      setDetailBusy(true);
       const response = await fetch(`/api/revisao/${encodeURIComponent(id)}`, {
         method: "POST", headers: {"Content-Type": "application/json", "X-Torre": data.chave},
         body: JSON.stringify({...ajuste, estado: button.dataset.decisao, estado_anterior: clip.estado, ajuste_anterior: clip.ajuste}),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.erro || "A revisão não foi salva.");
-      if (payload.corte.edicao) {
+      setDetailDirty(false);
+      if (button.dataset.avancar === "true") {
+        await refresh();
+        const remaining = [...reviewIds.slice(position + 1), ...reviewIds.slice(0, position)];
+        const next = remaining.find(nextId => data.clipes.some(item => item.id === nextId && item.estado === "pendente"));
+        if (button.isConnected) {
+          if (next) zoomClip(next, reviewIds);
+          else $("detalhe").close();
+        }
+      } else if (payload.corte.edicao) {
         location.hash = "edicao";
         if (button.isConnected) abrirEditor(payload.corte);
       } else if (button.isConnected) {
@@ -401,6 +533,7 @@ function zoomClip(id) {
     } catch (erro) {
       if (button.isConnected) showError(erro);
     } finally {
+      setDetailBusy(false);
       controls.forEach((control) => { control.disabled = false; });
     }
   }));
@@ -486,8 +619,7 @@ document.addEventListener("click", (event) => {
   if (corte) zoomClip(corte);
   if (canal) zoomChannel(canal);
   if (feed) {
-    $("filtro-criador").value = feed;
-    $("filtro-estado").value = "todos";
+    explicitFeedCreator = feed;
     $("detalhe").close();
     location.hash = "cortes";
     changeView();
@@ -511,7 +643,17 @@ for (const rail of sideRails) rail.addEventListener("toggle", () => {
 compactRails.addEventListener("change", updateSideRails);
 updateSideRails();
 $("detalhe").addEventListener("close", () => {
+  setDetailDirty(false);
+  setDetailBusy(false);
   if (!$("detalhe").open) $("dialog-conteudo").replaceChildren();
+});
+$("detalhe").addEventListener("cancel", event => {
+  event.preventDefault();
+  if ($("descartar-ajustes")) $("descartar-ajustes").querySelector("[data-continuar]").click();
+  else requestDetailClose();
+});
+window.addEventListener("beforeunload", event => {
+  if (detailDirty || detailBusy) { event.preventDefault(); event.returnValue = ""; }
 });
 for (const id of ["filtro-estado", "filtro-criador", "ordem"]) $(id).addEventListener("change", () => {
   limit = 12;
@@ -519,6 +661,15 @@ for (const id of ["filtro-estado", "filtro-criador", "ordem"]) $(id).addEventLis
 });
 $("mais").addEventListener("click", () => { limit += 12; renderFeed(); });
 $("atualizar").addEventListener("click", refresh);
+$("monitor-expandir")?.addEventListener("click", () => {
+  const panel = $("painel-flutuante");
+  const expanded = panel.classList.toggle("monitor-expandido");
+  const button = $("monitor-expandir");
+  button.setAttribute("aria-pressed", String(expanded));
+  button.setAttribute("aria-label", expanded ? "Restaurar moldura do computador" : "Expandir computador");
+  button.querySelector(".controle-tip").textContent = expanded ? "Restaurar moldura" : "Expandir área de trabalho";
+  document.body.classList.toggle("computador-expandido", expanded);
+});
 window.addEventListener("hashchange", changeView);
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && currentView() !== "escritorio" && !$("detalhe").open) {

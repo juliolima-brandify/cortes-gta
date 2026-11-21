@@ -96,3 +96,34 @@
   .menu .dock-item { transition: none; }
   .menu .dock-item:hover { transform: none; }
 }
+
+.menu:has(.dock-item) {
+  width: max-content; max-width: calc(100% - 24px); grid-template-columns: repeat(5, 48px);
+  gap: 6px; padding: 8px; border: 1px solid #ffffff85; border-radius: 25px;
+  background: linear-gradient(130deg, #ffffff85, #f4eafb3d);
+  box-shadow: inset 0 1px 0 #ffffffb0, 0 12px 32px #31233c25;
+  backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+.menu .dock-item {
+  position: relative; min-height: 48px; padding: 0; border-radius: 17px;
+  background: #ffffff16; border-color: transparent; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  transition: transform .24s cubic-bezier(.2,.8,.2,1), background .2s ease, box-shadow .2s ease;
+}
+.dock-icone { width: 38px; height: 38px; border: 0; background: transparent; box-shadow: none; --cockpit-icon-size: 23px; color: #51405e; }
+.dock-rotulo {
+  position: absolute; bottom: calc(100% + 18px); left: 50%; z-index: 12;
+  padding: 9px 14px; border: 1px solid #ffffffa6; border-radius: 13px;
+  color: #33273d; background: #fff8f2e8; box-shadow: 0 7px 20px #281d3726;
+  font-size: 12px; font-weight: 700; opacity: 0; visibility: hidden;
+  transform: translate(-50%, 5px); pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s;
+}
+.dock-rotulo::after { content: ""; position: absolute; bottom: -5px; left: calc(50% - 5px); width: 9px; height: 9px; background: #fff8f2; transform: rotate(45deg); border-radius: 1px; }
+.menu .dock-item:is(:hover, :focus-visible) { transform: translateY(-6px) scale(1.1); background: #ffffff65; border-color: #ffffffa6; box-shadow: 0 6px 13px #3b26471a; z-index: 2; }
+.dock-item:is(:hover, :focus-visible) .dock-rotulo { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.menu .dock-item[aria-current="page"] { background: #ffffff80; border-color: #ffffffc4; box-shadow: inset 0 1px 0 #ffffff; }
+.dock-item[aria-current="page"] .dock-icone { border: 0; background: none; color: #5c3e79; }
+.dock-item[aria-current="page"]::after { content: ""; position: absolute; bottom: 3px; width: 4px; height: 4px; background: #76528a; border-radius: 50%; }
+.escritorio-mesa.mesa-destacada { background: #ffffffeb; border-color: white; box-shadow: 0 0 0 4px #ffffff40, 0 8px 24px #4e2c6b38; transform: translate(-50%, -55%); }
+@media (prefers-reduced-motion: reduce) { .menu .dock-item, .dock-rotulo { transition: none; } .menu .dock-item:is(:hover, :focus-visible) { transform: none; } }

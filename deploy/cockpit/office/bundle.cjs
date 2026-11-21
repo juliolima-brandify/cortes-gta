@@ -14,6 +14,7 @@ async function bundle(appFile) {
     bundle: true,
     minify: true,
     legalComments: "inline",
+    loader: {".jpg": "dataurl"},
     write: false,
   });
   const source = (await readFile(appFile, "utf8")).split(separator)[0].trimEnd();

@@ -2,7 +2,8 @@
   "name": "cortes-gta-escritorio-3d",
   "private": true,
   "scripts": {
-    "bundle": "node bundle.cjs"
+    "bundle": "node bundle.cjs",
+    "test": "node --test *.test.mjs"
   },
   "dependencies": {
     "lucide": "1.77.0",

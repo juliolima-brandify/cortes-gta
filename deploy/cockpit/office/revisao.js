@@ -1,3 +1,5 @@
+import {startCardRail} from "./card-rail.js";
+
 const countFormat = new Intl.NumberFormat("pt-BR");
 
 function scoreOf(clip) {
@@ -72,6 +74,7 @@ export function startReview(office) {
   const total = document.getElementById("revisao-total");
   const empty = document.getElementById("revisao-sem-itens");
   if (!office || !list || !total) return;
+  startCardRail(list, {height: 80, name: "revisão"});
 
   const rows = new Map();
   office.addEventListener("cockpit:historico", ({detail}) => {

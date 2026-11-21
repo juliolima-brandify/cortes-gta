@@ -6,17 +6,17 @@
   <meta name="theme-color" content="#0d0c12">
   <title>Torre de controle · GTA 6 Cortes</title>
   <link rel="icon" href="/marca.png">
-  <link rel="stylesheet" href="/estilo.css?v=monitor-das-mesas">
-  <script src="/app.js?v=monitor-das-mesas" defer></script>
-  <script src="/editor.js" defer></script>
+  <link rel="stylesheet" href="/estilo.css?v=rua-calcada-22">
+  <script src="/app.js?v=rua-calcada-22" defer></script>
+  <script src="/editor.js?v=rua-calcada-22" defer></script>
 </head>
 <body>
   <div class="app">
     <nav class="menu" aria-label="Navegação principal">
       <a class="dock-item vidro" href="#escritorio" data-view="escritorio"><span class="dock-icone" data-cockpit-icon="building-2" aria-hidden="true"></span><span class="dock-rotulo">Escritório</span></a>
-      <a class="dock-item vidro" href="#torre" data-view="torre" aria-label="Torre ao vivo"><span class="dock-icone" data-cockpit-icon="radio-tower" aria-hidden="true"></span><span class="dock-rotulo">Torre</span></a>
-      <a class="dock-item vidro" href="#cortes" data-view="cortes" aria-label="Garimpo, feed de cortes"><span class="dock-icone" data-cockpit-icon="list-video" aria-hidden="true"></span><span class="dock-rotulo">Cortes</span></a>
-      <a class="dock-item vidro" href="#edicao" data-view="edicao" aria-label="Em edição"><span class="dock-icone" data-cockpit-icon="scissors" aria-hidden="true"></span><span class="dock-rotulo">Edição</span></a>
+      <a class="dock-item vidro" href="#torre" data-view="torre" aria-label="Captura"><span class="dock-icone" data-cockpit-icon="radio-tower" aria-hidden="true"></span><span class="dock-rotulo">Captura</span></a>
+      <a class="dock-item vidro" href="#cortes" data-view="cortes" aria-label="Garimpo"><span class="dock-icone" data-cockpit-icon="list-video" aria-hidden="true"></span><span class="dock-rotulo">Garimpo</span></a>
+      <a class="dock-item vidro" href="#edicao" data-view="edicao" aria-label="Edição"><span class="dock-icone" data-cockpit-icon="scissors" aria-hidden="true"></span><span class="dock-rotulo">Edição</span></a>
       <a class="dock-item vidro" href="#agenda" data-view="agenda"><span class="dock-icone" data-cockpit-icon="calendar-days" aria-hidden="true"></span><span class="dock-rotulo">Agenda</span></a>
     </nav>
     <header class="topo vidro" aria-label="Indicadores do Cockpit">
@@ -26,6 +26,28 @@
         <a class="hud-item" href="#cortes" title="Cortes esperando revisão no Garimpo"><span class="hud-sinal" aria-hidden="true"></span><span>Garimpo</span><strong id="hud-garimpo">—</strong></a>
         <a class="hud-item" href="#edicao" title="Cortes aprovados na etapa de edição"><span class="hud-sinal" aria-hidden="true"></span><span>Em edição</span><strong id="hud-edicao">—</strong></a>
         <a class="hud-item" href="#agenda" title="Vídeos com agendamento registrado"><span class="hud-sinal" aria-hidden="true"></span><span>Agendados</span><strong id="hud-agenda">—</strong></a>
+      </div>
+      <button class="relogio-dia" id="relogio-dia" type="button" aria-label="Alterar período do cenário" aria-haspopup="menu" aria-expanded="false" aria-controls="tempo-menu">
+        <svg viewBox="0 0 120 70" aria-hidden="true">
+          <path class="relogio-trilha" d="M14 56 A46 46 0 0 1 106 56" />
+          <path id="relogio-progresso" d="M14 56 A46 46 0 0 1 106 56" />
+          <g class="relogio-marcas"><path d="M14 53v6 M106 53v6 M60 6v6 M26 20l4 4 M94 20l-4 4" /></g>
+          <g id="relogio-astro">
+            <g class="astro-sol"><circle r="5"/><path d="M0-10v2 M0 8v2 M-10 0h2 M8 0h2 M-7-7l1.5 1.5 M5.5 5.5L7 7 M7-7L5.5-5.5 M-5.5 5.5L-7 7"/></g>
+            <path class="astro-lua" d="M3-7a8 8 0 1 0 4 12A8 8 0 0 1 3-7Z"/>
+          </g>
+        </svg>
+        <time id="hora-atual">--:--</time>
+        <span id="relogio-legenda">SÃO PAULO</span>
+      </button>
+      <div id="tempo-menu" class="tempo-menu vidro" role="menu" aria-label="Período do cenário" hidden>
+        <span>ILUMINAÇÃO DO CENÁRIO</span>
+        <button type="button" role="menuitemradio" aria-checked="true" data-tempo="auto">Automático <small>Horário de São Paulo</small></button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-tempo="8">Manhã</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-tempo="12">Dia</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-tempo="16">Tardezinha</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-tempo="18.1">Sunset</button>
+        <button type="button" role="menuitemradio" aria-checked="false" data-tempo="22">Noite</button>
       </div>
       <div class="conexao">
         <span class="sync" id="hud-conexao"><i id="status-topo" class="mini-dot" aria-hidden="true"></i><span id="monitor-hora">Carregando</span><span id="estado-rail" class="somente-leitor" role="status">Conectando</span></span>
@@ -44,14 +66,22 @@
             <button type="button" class="escritorio-mesa" data-mesa="edicao"><strong>Edição</strong><small>Conectando</small></button>
             <button type="button" class="escritorio-mesa" data-mesa="agenda"><strong>Agenda</strong><small>Conectando</small></button>
           </div>
+          <div class="camera-controles vidro" role="group" aria-label="Controles da câmera">
+            <span class="camera-dica">Arraste para mover <b>·</b> Shift + arraste para girar</span>
+            <button type="button" data-camera="afastar" aria-label="Afastar câmera">−</button>
+            <output id="camera-zoom" aria-label="Zoom da câmera">100%</output>
+            <button type="button" data-camera="aproximar" aria-label="Aproximar câmera">+</button>
+            <button type="button" data-camera="recentrar" aria-label="Recentrar câmera"><span data-cockpit-icon="rotate-ccw" aria-hidden="true"></span></button>
+          </div>
         </section>
         <div id="painel-flutuante" class="monitor-mesa" role="region" hidden>
           <div class="monitor-cabecalho">
             <a href="#escritorio" class="monitor-voltar" aria-label="Voltar ao Escritório"><span data-cockpit-icon="arrow-left" aria-hidden="true"></span>Escritório</a>
             <span id="monitor-setor"></span>
+            <button type="button" id="monitor-expandir" class="monitor-expandir" aria-label="Expandir computador" aria-pressed="false"><span data-cockpit-icon="maximize-2" aria-hidden="true"></span><span class="controle-tip" role="tooltip">Expandir área de trabalho</span></button>
           </div>
         <section id="torre" class="tela" hidden>
-          <div class="titulo da-torre"><div><h1>Torre de controle</h1><p>Lives de GTA e cortes em produção.</p></div><a class="botao acao" href="#cortes">Abrir fila de revisão</a></div>
+          <div class="titulo da-torre"><div><h1>Captura</h1><p>Lives de GTA e cortes em produção.</p></div><a class="botao acao" href="#cortes">Abrir Garimpo</a></div>
           <div class="resumo" id="contadores" aria-label="Resumo da operação"></div>
           <section class="secao" aria-labelledby="lives-titulo">
             <div class="cabecalho"><div><h2 id="lives-titulo">Canais monitorados</h2></div><span class="filtro-fixo">GTA VI <b>·</b> GTA V / RP</span></div>
@@ -70,7 +100,7 @@
           </div>
         </section>
         <section id="cortes" class="tela" hidden>
-          <div class="titulo"><div><h1 id="titulo-feed">Feed de cortes</h1><p id="calibracao"></p></div></div>
+          <div class="titulo"><div><h1 id="titulo-feed">Garimpo</h1><p id="calibracao"></p></div></div>
           <div class="filtros">
             <label id="campo-estado">Estado<select id="filtro-estado"><option value="pendente">Para revisar</option><option value="aprovado">Aprovados pra editar</option><option value="pronto">Prontos pra agendar</option><option value="finalizado">Já publicados ou agendados</option><option value="recusado">Recusados</option><option value="todos">Todos</option></select></label>
             <label>Criador<select id="filtro-criador"><option value="todos">Todos</option><option>Alanzoka</option><option>Paulinho o Loko</option><option>Láctea</option><option>Renato Money Moicano</option></select></label>
